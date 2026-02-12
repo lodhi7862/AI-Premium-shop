@@ -1,0 +1,2 @@
+// Search Stores
+export {};
