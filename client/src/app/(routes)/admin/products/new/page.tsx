@@ -31,9 +31,11 @@ const NewProductPage: React.FC = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
-  const [cropZoom, setCropZoom] = useState(1);
+  const [cropZoom, setCropZoom] = useState(0.5);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Redirect if not admin
@@ -137,29 +139,32 @@ const NewProductPage: React.FC = () => {
   };
 
   const handleCropConfirm = () => {
-    if (!imageRef.current || !canvasRef.current || !uploadedImage) return;
+    if (!imageRef.current || !canvasRef.current || !uploadedImage || !cropContainerRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const image = imageRef.current;
+    const container = cropContainerRef.current;
+
+    // Get the actual container dimensions
+    const containerSize = Math.min(container.offsetWidth, container.offsetHeight);
 
     // Set canvas size to product image dimensions
     canvas.width = PRODUCT_IMAGE_WIDTH;
     canvas.height = PRODUCT_IMAGE_HEIGHT;
 
-    // The container is the visible crop area (approximately 300x300 or similar)
+    // The container shows a square area, we need to extract what's visible in the container from the original image
     // The image is transformed with: translate(cropPosition.x, cropPosition.y) scale(cropZoom)
-    // We need to extract what's visible in the container from the original image
+    // We need to calculate what portion of the original image is visible in the container
     
     // Calculate the source rectangle from the original image
     // The visible area in image coordinates is:
     const sourceX = Math.max(0, -cropPosition.x / cropZoom);
     const sourceY = Math.max(0, -cropPosition.y / cropZoom);
     
-    // The container shows a square area, we need to match that aspect
-    const containerSize = 300; // Approximate visible crop area
+    // The container shows a square area, calculate source dimensions
     const sourceWidth = containerSize / cropZoom;
     const sourceHeight = containerSize / cropZoom;
 
@@ -457,7 +462,27 @@ const NewProductPage: React.FC = () => {
 
             {/* Crop Preview */}
             <div className="mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center">
-              <div className="relative w-full max-w-md h-96 bg-gray-50 dark:bg-gray-600 rounded overflow-hidden border-2 border-dashed border-gray-400 mb-4">
+              <div 
+                ref={cropContainerRef}
+                className="relative w-full max-w-md h-96 bg-gray-50 dark:bg-gray-600 rounded overflow-hidden border-2 border-dashed border-gray-400 mb-4"
+                onMouseDown={(e) => {
+                  setDragStart({ x: e.clientX, y: e.clientY });
+                }}
+                onMouseMove={(e) => {
+                  if (e.buttons === 1) { // Left mouse button is pressed
+                    const deltaX = e.clientX - dragStart.x;
+                    const deltaY = e.clientY - dragStart.y;
+                    setCropPosition((prev) => ({
+                      x: prev.x + deltaX,
+                      y: prev.y + deltaY,
+                    }));
+                    setDragStart({ x: e.clientX, y: e.clientY });
+                  }
+                }}
+                onMouseUp={() => {
+                  setDragStart({ x: 0, y: 0 });
+                }}
+              >
                 <img
                   ref={imageRef}
                   src={uploadedImage}
@@ -467,18 +492,9 @@ const NewProductPage: React.FC = () => {
                     transformOrigin: '0 0',
                     cursor: 'grab',
                   }}
-                  className="absolute top-0 left-0 h-full"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDrag={(e) => {
-                    if (e.clientX || e.clientY) {
-                      setCropPosition((prev) => ({
-                        x: prev.x + (e.clientX || 0),
-                        y: prev.y + (e.clientY || 0),
-                      }));
-                    }
+                  className="absolute top-0 left-0 h-full w-auto"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                   }}
                 />
                 {/* Target frame */}
@@ -492,7 +508,7 @@ const NewProductPage: React.FC = () => {
                 </label>
                 <input
                   type="range"
-                  min="1"
+                  min="0.3"
                   max="3"
                   step="0.1"
                   value={cropZoom}

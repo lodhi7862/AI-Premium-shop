@@ -6,11 +6,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUIStore, useCartStore, useAuthStore } from '@/store';
 import { useTheme } from 'next-themes';
 import Button from '../ui/Button';
 
 const Header: React.FC = () => {
+  const router = useRouter();
   const { toggleCart } = useUIStore();
   const { getTotalItems, _hasHydrated } = useCartStore();
   const { user, logout } = useAuthStore();
@@ -23,6 +25,10 @@ const Header: React.FC = () => {
 
   const handleThemeToggle = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleCartClick = () => {
+    router.push('/cart');
   };
 
   return (
@@ -73,7 +79,7 @@ const Header: React.FC = () => {
 
           {/* Cart */}
           <button
-            onClick={() => toggleCart()}
+            onClick={handleCartClick}
             className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-brand-secondary transition-colors"
           >
             🛒
